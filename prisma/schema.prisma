@@ -1,0 +1,381 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id    BigInt @id @default(autoincrement()) @map("role_id")
+  name  String @unique @map("role_name") @db.VarChar(50)
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           BigInt @id @default(autoincrement()) @map("user_id")
+  fullName     String @map("full_name") @db.VarChar(255)
+  email        String? @unique @db.VarChar(255)
+  phone        String? @unique @db.VarChar(20)
+  passwordHash String @map("password_hash") @db.VarChar(255)
+  roleId       BigInt @map("role_id")
+  status       String @default("ACTIVE") @db.VarChar(30)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  role         Role   @relation(fields: [roleId], references: [id])
+  properties   Property[]
+  assignments  PropertyManagerAssignment[]
+  leases       Lease[]
+  payments     Payment[] @relation("PaymentPayer")
+  verifications Payment[] @relation("PaymentVerifier")
+  expenses     Expense[] @relation("ExpenseCreatedBy")
+  voidedExpenses Expense[] @relation("ExpenseVoidedBy")
+  alertRecipients AlertRecipient[]
+  unitConnectionRequests UnitConnectionRequest[] @relation("UnitConnectionTenant")
+  reviewedUnitConnectionRequests UnitConnectionRequest[] @relation("UnitConnectionReviewedBy")
+  createdUnitInviteCodes UnitInviteCode[] @relation("UnitInviteCreatedBy")
+  managerAssignmentRequests ManagerAssignmentRequest[] @relation("ManagerAssignmentManager")
+  reviewedManagerAssignmentRequests ManagerAssignmentRequest[] @relation("ManagerAssignmentReviewedBy")
+  createdPropertyManagerInviteCodes PropertyManagerInviteCode[] @relation("PropertyManagerInviteCreatedBy")
+  authAccounts AuthAccount[]
+
+  @@map("users")
+}
+
+model AuthAccount {
+  id                BigInt   @id @default(autoincrement()) @map("auth_account_id")
+  userId            BigInt   @map("user_id")
+  provider          String   @db.VarChar(30)
+  providerAccountId String   @map("provider_account_id") @db.VarChar(255)
+  providerEmail     String?  @map("provider_email") @db.VarChar(255)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId], name: "uq_auth_accounts_provider_account")
+  @@map("auth_accounts")
+}
+
+model Property {
+  id           BigInt @id @default(autoincrement()) @map("property_id")
+  ownerId      BigInt @map("owner_id")
+  propertyCode String @unique @map("property_code") @db.VarChar(50)
+  propertyName String @map("property_name") @db.VarChar(255)
+  addressLine  String @map("address_line") @db.VarChar(255)
+  ward         String? @db.VarChar(100)
+  district     String? @db.VarChar(100)
+  city         String? @db.VarChar(100)
+  propertyType String? @map("property_type") @db.VarChar(50)
+  totalUnits   Int    @default(1) @map("total_units")
+  status       String @default("ACTIVE") @db.VarChar(30)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  owner        User   @relation(fields: [ownerId], references: [id])
+  units        Unit[]
+  assignments  PropertyManagerAssignment[]
+  expenses     Expense[]
+  alerts       Alert[]
+  managerInviteCodes PropertyManagerInviteCode[]
+  managerAssignmentRequests ManagerAssignmentRequest[]
+  paymentReceivingAccounts PaymentReceivingAccount[]
+
+  @@map("properties")
+}
+
+model PropertyManagerAssignment {
+  id             BigInt @id @default(autoincrement()) @map("assignment_id")
+  propertyId     BigInt @map("property_id")
+  managerId      BigInt @map("manager_id")
+  startDate      DateTime @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  salaryType     String @default("FIXED_MONTHLY") @map("salary_type") @db.VarChar(30)
+  baseSalary     Decimal @default(0) @map("base_salary") @db.Decimal(15,2)
+  commissionRate Decimal @default(0) @map("commission_rate") @db.Decimal(10,4)
+  status         String @default("ACTIVE") @db.VarChar(30)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  property       Property @relation(fields: [propertyId], references: [id])
+  manager        User     @relation(fields: [managerId], references: [id])
+  expenses       Expense[]
+  alerts         Alert[]
+
+  @@unique([propertyId, managerId, startDate], name: "uq_pma_property_manager_start")
+  @@map("property_manager_assignments")
+}
+
+model Unit {
+  id                 BigInt @id @default(autoincrement()) @map("unit_id")
+  propertyId         BigInt @map("property_id")
+  unitCode           String @map("unit_code") @db.VarChar(50)
+  unitName           String? @map("unit_name") @db.VarChar(255)
+  floorNumber        Int? @map("floor_number")
+  bedroomCount       Int? @map("bedroom_count")
+  bathroomCount      Int? @map("bathroom_count")
+  areaSqm            Decimal? @map("area_sqm") @db.Decimal(10,2)
+  furnishingStatus   String? @map("furnishing_status") @db.VarChar(50)
+  defaultMonthlyRent Decimal? @map("default_monthly_rent") @db.Decimal(15,2)
+  defaultDeposit     Decimal? @map("default_deposit") @db.Decimal(15,2)
+  occupancyStatus    String @default("VACANT") @map("occupancy_status") @db.VarChar(30)
+  vacantSince        DateTime? @map("vacant_since") @db.Date
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  property           Property @relation(fields: [propertyId], references: [id])
+  leases             Lease[]
+  expenses           Expense[]
+  alerts             Alert[]
+  inviteCodes        UnitInviteCode[]
+  connectionRequests UnitConnectionRequest[]
+
+  @@unique([propertyId, unitCode])
+  @@map("units")
+}
+
+model Lease {
+  id                 BigInt @id @default(autoincrement()) @map("lease_id")
+  unitId             BigInt @map("unit_id")
+  tenantId           BigInt @map("tenant_id")
+  startDate          DateTime @map("start_date") @db.Date
+  endDate            DateTime @map("end_date") @db.Date
+  dueDayOfMonth      Int @map("due_day_of_month")
+  baseRent           Decimal @map("base_rent") @db.Decimal(15,2)
+  depositAmount      Decimal @default(0) @map("deposit_amount") @db.Decimal(15,2)
+  managementFee      Decimal @default(0) @map("management_fee") @db.Decimal(15,2)
+  utilityNote        String? @map("utility_note") @db.Text
+  penaltyType        String @default("NONE") @map("penalty_type") @db.VarChar(30)
+  penaltyRate        Decimal @default(0) @map("penalty_rate") @db.Decimal(10,4)
+  penaltyFlatAmount  Decimal @default(0) @map("penalty_flat_amount") @db.Decimal(15,2)
+  status             String @default("DRAFT") @db.VarChar(30)
+  terminationRequestedAt DateTime? @map("termination_requested_at")
+  terminationRequestedNote String? @map("termination_requested_note") @db.Text
+  terminatedAt       DateTime? @map("terminated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  unit               Unit   @relation(fields: [unitId], references: [id])
+  tenant             User   @relation(fields: [tenantId], references: [id])
+  invoices           Invoice[]
+  alerts             Alert[]
+
+  @@map("leases")
+}
+
+model Invoice {
+  id                  BigInt @id @default(autoincrement()) @map("invoice_id")
+  leaseId             BigInt @map("lease_id")
+  invoiceCode         String @unique @map("invoice_code") @db.VarChar(50)
+  billingYear         Int @map("billing_year")
+  billingMonth        Int @map("billing_month")
+  rentAmount          Decimal @map("rent_amount") @db.Decimal(15,2)
+  utilityAmount       Decimal @default(0) @map("utility_amount") @db.Decimal(15,2)
+  managementFeeAmount Decimal @default(0) @map("management_fee_amount") @db.Decimal(15,2)
+  penaltyAmount       Decimal @default(0) @map("penalty_amount") @db.Decimal(15,2)
+  otherFeeAmount      Decimal @default(0) @map("other_fee_amount") @db.Decimal(15,2)
+  totalAmount         Decimal @map("total_amount") @db.Decimal(15,2)
+  dueDate             DateTime @map("due_date") @db.Date
+  status              String @default("UNPAID") @db.VarChar(30)
+  issuedAt            DateTime @default(now()) @map("issued_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  lease               Lease @relation(fields: [leaseId], references: [id])
+  payments            Payment[]
+  alerts              Alert[]
+
+  @@unique([leaseId, billingYear, billingMonth], name: "uq_invoices_lease_billing")
+  @@map("invoices")
+}
+
+model Payment {
+  id                 BigInt @id @default(autoincrement()) @map("payment_id")
+  invoiceId          BigInt @map("invoice_id")
+  payerId            BigInt @map("payer_id")
+  paymentMethod      String @map("payment_method") @db.VarChar(50)
+  transferReference  String? @map("transfer_reference") @db.VarChar(100)
+  paidAmount         Decimal @map("paid_amount") @db.Decimal(15,2)
+  paymentProofUrl    String? @map("payment_proof_url") @db.VarChar(500)
+  paymentProofPath   String? @map("payment_proof_path") @db.VarChar(500)
+  paymentNote        String? @map("payment_note") @db.Text
+  submittedAt        DateTime @default(now()) @map("submitted_at")
+  verifiedById       BigInt? @map("verified_by")
+  verifiedAt         DateTime? @map("verified_at")
+  verificationNote   String? @map("verification_note") @db.Text
+  verificationStatus String @default("PENDING") @map("verification_status") @db.VarChar(30)
+
+  invoice            Invoice @relation(fields: [invoiceId], references: [id])
+  payer              User    @relation("PaymentPayer", fields: [payerId], references: [id])
+  verifiedBy         User?   @relation("PaymentVerifier", fields: [verifiedById], references: [id])
+
+  @@map("payments")
+}
+
+model PaymentReceivingAccount {
+  id                   BigInt @id @default(autoincrement()) @map("payment_receiving_account_id")
+  propertyId           BigInt @map("property_id")
+  bankCode             String @map("bank_code") @db.VarChar(50)
+  bankName             String @map("bank_name") @db.VarChar(255)
+  accountNumber        String @map("account_number") @db.VarChar(100)
+  accountName          String @map("account_name") @db.VarChar(255)
+  transferNoteTemplate String? @map("transfer_note_template") @db.VarChar(255)
+  isActive             Boolean @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+
+  property             Property @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId, isActive])
+  @@map("payment_receiving_accounts")
+}
+
+model Expense {
+  id             BigInt @id @default(autoincrement()) @map("expense_id")
+  propertyId     BigInt @map("property_id")
+  unitId         BigInt? @map("unit_id")
+  assignmentId   BigInt? @map("assignment_id")
+  category       String @db.VarChar(50)
+  amount         Decimal @db.Decimal(15,2)
+  expenseDate    DateTime @map("expense_date") @db.Date
+  vendorName     String? @map("vendor_name") @db.VarChar(255)
+  note           String? @db.Text
+  receiptUrl     String? @map("receipt_url") @db.VarChar(500)
+  status         String @default("ACTIVE") @db.VarChar(30)
+  createdById    BigInt @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+  voidedAt       DateTime? @map("voided_at")
+  voidedById     BigInt? @map("voided_by")
+
+  property       Property @relation(fields: [propertyId], references: [id])
+  unit           Unit?    @relation(fields: [unitId], references: [id])
+  assignment     PropertyManagerAssignment? @relation(fields: [assignmentId], references: [id])
+  createdBy      User     @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  voidedBy       User?    @relation("ExpenseVoidedBy", fields: [voidedById], references: [id])
+
+  @@index([propertyId, expenseDate])
+  @@index([createdById, status])
+  @@map("expenses")
+}
+
+model Alert {
+  id             BigInt @id @default(autoincrement()) @map("alert_id")
+  propertyId     BigInt? @map("property_id")
+  unitId         BigInt? @map("unit_id")
+  leaseId        BigInt? @map("lease_id")
+  invoiceId      BigInt? @map("invoice_id")
+  assignmentId   BigInt? @map("assignment_id")
+  alertType      String @map("alert_type") @db.VarChar(50)
+  dedupeKey      String @unique @map("dedupe_key") @db.VarChar(160)
+  title          String @db.VarChar(255)
+  description    String? @db.Text
+  alertDate      DateTime @map("alert_date") @db.Date
+  severity       String @default("MEDIUM") @db.VarChar(20)
+  status         String @default("OPEN") @db.VarChar(20)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+  resolvedAt     DateTime? @map("resolved_at")
+
+  property       Property? @relation(fields: [propertyId], references: [id])
+  unit           Unit?     @relation(fields: [unitId], references: [id])
+  lease          Lease?    @relation(fields: [leaseId], references: [id])
+  invoice        Invoice?  @relation(fields: [invoiceId], references: [id])
+  assignment     PropertyManagerAssignment? @relation(fields: [assignmentId], references: [id])
+  recipients     AlertRecipient[]
+
+  @@index([status, alertType])
+  @@index([propertyId, status])
+  @@map("alerts")
+}
+
+model AlertRecipient {
+  id             BigInt @id @default(autoincrement()) @map("alert_recipient_id")
+  alertId        BigInt @map("alert_id")
+  userId         BigInt @map("user_id")
+  isRead         Boolean @default(false) @map("is_read")
+  readAt         DateTime? @map("read_at")
+  notifiedAt     DateTime? @map("notified_at")
+
+  alert          Alert @relation(fields: [alertId], references: [id])
+  user           User  @relation(fields: [userId], references: [id])
+
+  @@unique([alertId, userId])
+  @@map("alert_recipients")
+}
+
+model UnitInviteCode {
+  id                 BigInt @id @default(autoincrement()) @map("unit_invite_code_id")
+  unitId             BigInt @map("unit_id")
+  codeHash           String @unique @map("code_hash") @db.VarChar(255)
+  expiresAt          DateTime @map("expires_at")
+  revokedAt          DateTime? @map("revoked_at")
+  createdById        BigInt @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  unit               Unit                    @relation(fields: [unitId], references: [id])
+  createdBy          User                    @relation("UnitInviteCreatedBy", fields: [createdById], references: [id])
+  connectionRequests UnitConnectionRequest[]
+
+  @@map("unit_invite_codes")
+}
+
+model UnitConnectionRequest {
+  id            BigInt @id @default(autoincrement()) @map("unit_connection_request_id")
+  unitId        BigInt @map("unit_id")
+  tenantId      BigInt @map("tenant_id")
+  inviteId      BigInt @map("invite_id")
+  status        String @default("PENDING") @db.VarChar(30)
+  requestedAt   DateTime @default(now()) @map("requested_at")
+  reviewedAt    DateTime? @map("reviewed_at")
+  reviewedById  BigInt? @map("reviewed_by")
+  rejectionNote String? @map("rejection_note") @db.Text
+
+  unit          Unit           @relation(fields: [unitId], references: [id])
+  tenant        User           @relation("UnitConnectionTenant", fields: [tenantId], references: [id])
+  invite        UnitInviteCode @relation(fields: [inviteId], references: [id])
+  reviewedBy    User?          @relation("UnitConnectionReviewedBy", fields: [reviewedById], references: [id])
+
+  @@unique([inviteId, tenantId])
+  @@map("unit_connection_requests")
+}
+
+model PropertyManagerInviteCode {
+  id                 BigInt @id @default(autoincrement()) @map("property_manager_invite_code_id")
+  propertyId         BigInt @map("property_id")
+  codeHash           String @unique @map("code_hash") @db.VarChar(255)
+  expiresAt          DateTime @map("expires_at")
+  revokedAt          DateTime? @map("revoked_at")
+  createdById        BigInt @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  property           Property                   @relation(fields: [propertyId], references: [id])
+  createdBy          User                       @relation("PropertyManagerInviteCreatedBy", fields: [createdById], references: [id])
+  assignmentRequests ManagerAssignmentRequest[]
+
+  @@map("property_manager_invite_codes")
+}
+
+model ManagerAssignmentRequest {
+  id            BigInt @id @default(autoincrement()) @map("manager_assignment_request_id")
+  propertyId    BigInt @map("property_id")
+  managerId     BigInt @map("manager_id")
+  inviteId      BigInt @map("invite_id")
+  status        String @default("PENDING") @db.VarChar(30)
+  requestedAt   DateTime @default(now()) @map("requested_at")
+  reviewedAt    DateTime? @map("reviewed_at")
+  reviewedById  BigInt? @map("reviewed_by")
+  rejectionNote String? @map("rejection_note") @db.Text
+
+  property      Property                  @relation(fields: [propertyId], references: [id])
+  manager       User                      @relation("ManagerAssignmentManager", fields: [managerId], references: [id])
+  invite        PropertyManagerInviteCode @relation(fields: [inviteId], references: [id])
+  reviewedBy    User?                     @relation("ManagerAssignmentReviewedBy", fields: [reviewedById], references: [id])
+
+  @@unique([inviteId, managerId])
+  @@map("manager_assignment_requests")
+}
