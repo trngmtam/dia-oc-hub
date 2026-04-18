@@ -12,7 +12,7 @@ The platform aims to reduce administrative overhead, improve financial transpare
 
 # (2) Demonstration Video
 
-[[Demo Video Link](https://youtu.be/5DMqa_HJz6Y)]
+[Demo Video Link](https://youtu.be/5DMqa_HJz6Y)
 
 ⸻
 
@@ -76,4 +76,4 @@ Features include:
 
 # (4) Source Code Repository
 
-[[GitHub Repository](https://github.com/nhatanh120604/Nhadatpro.git)]
+[GitHub Repository](https://github.com/nhatanh120604/Nhadatpro.git)
