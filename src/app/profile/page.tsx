@@ -2,7 +2,10 @@ import React from 'react';
 import { getSession } from '@/lib/session';
 import { type Role } from '@/features/auth/auth.types';
 import AppLayout from '@/components/layout/AppLayout';
-import { Camera, KeyRound, Mail, Shield, User, MapPin, Phone } from 'lucide-react';
+import { Camera, KeyRound, Shield, User } from 'lucide-react';
+import prisma from '@/lib/prisma';
+import PersonalInfoForm from '@/features/profile/components/PersonalInfoForm';
+import PasswordForm from '@/features/profile/components/PasswordForm';
 
 function roleText(role: Role) {
   if (role === 'OWNER') return 'Chủ sở hữu';
@@ -17,9 +20,15 @@ export default async function ProfilePage() {
   // If there's no session, AppLayout will handle the redirect, 
   if (!session) return null;
 
+  const user = await prisma.user.findUnique({
+    where: { id: BigInt(session.userId) },
+    select: { fullName: true, email: true, phone: true }
+  });
+
+  if (!user) return null;
+
   // Extract the first letter of the email for the avatar placeholder
   const initial = session.email.charAt(0).toUpperCase();
-  const displayName = session.name;
 
   return (
     <AppLayout allowedRoles={['OWNER', 'MANAGER', 'TENANT', 'ADMIN']}>
@@ -54,8 +63,8 @@ export default async function ProfilePage() {
                 </button>
               </div>
 
-              <h2 className="text-xl font-black text-brand-ink truncate w-full px-4">{session.name}</h2>
-              <p className="text-xs font-bold text-brand-muted mt-1 truncate w-full">{session.email}</p>
+              <h2 className="text-xl font-black text-brand-ink truncate w-full px-4">{user.fullName}</h2>
+              <p className="text-xs font-bold text-brand-muted mt-1 truncate w-full">{user.email || session.email}</p>
               
               <div className="mt-5 warm-badge">
                 <Shield className="h-3.5 w-3.5" />
@@ -76,46 +85,11 @@ export default async function ProfilePage() {
                 Thông tin cơ bản
               </h3>
 
-              <form className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-brand-muted">Họ và tên</label>
-                    <input type="text" className="input-shell" placeholder="Nguyễn Văn A" defaultValue="" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-brand-muted">Số điện thoại</label>
-                    <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-muted/50" />
-                      <input type="tel" className="input-shell pl-11" placeholder="09xx xxx xxx" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-brand-muted">Địa chỉ</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-muted/50" />
-                    <input type="text" className="input-shell pl-11" placeholder="Nhập địa chỉ của bạn" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-brand-muted">Email đăng nhập</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-muted/50" />
-                    <input type="email" className="input-shell pl-11 opacity-70 cursor-not-allowed" defaultValue={session.email} disabled />
-                  </div>
-                  <p className="ml-1 mt-2 text-[11px] font-bold text-brand-muted/70">
-                    Email này được gắn cố định với tài khoản và không thể thay đổi.
-                  </p>
-                </div>
-
-                <div className="pt-4 flex justify-end">
-                  <button type="button" className="btn-primary w-full sm:w-auto px-10 py-3.5">
-                    Lưu thông tin
-                  </button>
-                </div>
-              </form>
+              <PersonalInfoForm initialData={{
+                fullName: user.fullName,
+                phone: user.phone || '',
+                email: user.email || session.email,
+              }} />
             </div>
 
             {/* Password Form */}
@@ -127,29 +101,7 @@ export default async function ProfilePage() {
                 Đổi mật khẩu
               </h3>
 
-              <form className="space-y-6">
-                <div className="space-y-2">
-                  <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-brand-muted">Mật khẩu hiện tại</label>
-                  <input type="password" className="input-shell" placeholder="••••••••" />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-brand-muted">Mật khẩu mới</label>
-                    <input type="password" className="input-shell" placeholder="••••••••" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="ml-1 text-[11px] font-black uppercase tracking-widest text-brand-muted">Xác nhận mật khẩu mới</label>
-                    <input type="password" className="input-shell" placeholder="••••••••" />
-                  </div>
-                </div>
-
-                <div className="pt-4 flex justify-end">
-                  <button type="button" className="btn-secondary w-full sm:w-auto px-10 py-3.5">
-                    Cập nhật mật khẩu
-                  </button>
-                </div>
-              </form>
+              <PasswordForm />
             </div>
 
           </div>
